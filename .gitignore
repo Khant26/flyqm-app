@@ -1,8 +1,23 @@
+# Secrets / local config (only .env.example is committed)
 .env
+.env.*
+!.env.example
+
+# Python
 __pycache__/
-*.pyc
-.env.local
-.vscode/
-node_modules/
-postgres_data/
+*.py[cod]
+.venv/
 venv/
+.pytest_cache/
+*.db
+
+# Node / frontend build output (from the main branch checkout)
+node_modules/
+dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+postgres_data/

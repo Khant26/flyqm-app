@@ -1,19 +1,21 @@
 ## Makefile - common commands for development
 
-.PHONY: up build backend run lint format clean
+.PHONY: up down build backend test
 
+# Full stack (backend + Postgres) via Docker Compose; needs ./.env
 up:
-	cd infra && docker-compose up --build
+	docker compose -f infra/docker-compose.yml up --build
 
+down:
+	docker compose -f infra/docker-compose.yml down
+
+# Production image
 build:
-	docker build -t iwm-backend backend
+	docker build -t flyqm-backend backend
 
+# Local dev server (needs a reachable DATABASE_URL in the environment or backend/.env)
 backend:
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir backend/app
+	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-lint:
-	# add linting commands if you use flake/ruff
-	echo "No linter configured"
-
-clean:
-	rm -rf .venv
+test:
+	cd backend && PYTHONPATH=. DATABASE_URL=sqlite:///./test.db SECRET_KEY=test TICKET_API_KEY=test python -m unittest discover -s tests -v

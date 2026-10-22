@@ -1,33 +1,42 @@
-version: "3.9"
-
+# Local development stack: FastAPI backend + Postgres.
+# Usage (from repo root):  cp .env.example .env && docker compose -f infra/docker-compose.yml up --build
 services:
   backend:
     build: ../backend
-    container_name: air-backend
+    container_name: flyqm-backend
     ports:
       - "8000:8000"
     env_file:
       - ../.env
+    environment:
+      PORT: "8000"
+    # Dev only: live-reload source from the host
     volumes:
       - ../backend:/app
     working_dir: /app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
-      - db
-    restart: always
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
   db:
     image: postgres:15
-    container_name: air-postgres
+    container_name: flyqm-postgres
     environment:
-      POSTGRES_USER: airuser
-      POSTGRES_PASSWORD: airpassword
-      POSTGRES_DB: airdb
+      POSTGRES_USER: ${POSTGRES_USER:-airuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-airdb}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5433:5432"
-    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-airuser} -d $${POSTGRES_DB:-airdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
 volumes:
   postgres_data:

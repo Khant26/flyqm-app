@@ -1,44 +1,20 @@
-# Backend — IWM Airline Ticket
+# FlyQM API: `backend/`
 
-Location: `backend/`
-
-Prerequisites
-- Python 3.11+ (local dev) or Docker
-- Postgres (if running locally)
-
-Environment
-- The backend reads settings from a `.env` file (see project root `.env.example`). Required variables:
-  - `DATABASE_URL` (example: `postgresql://airuser:airpassword@localhost:5433/airdb`)
-  - `SECRET_KEY` (random secret used for JWT)
-  - `TICKET_API_KEY` (external ticket API key)
-  - `ACCESS_TOKEN_EXPIRE_MINUTES` (optional; default 60)
-
-Run locally
+This folder holds the FastAPI application package (`app/`), its tests and the production `Dockerfile`. The repository root [README](../README.md) covers configuration, Docker and the endpoint list.
 
 ```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
 pip install -r requirements.txt
-# ensure .env exists with DATABASE_URL etc.
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # needs DATABASE_URL, SECRET_KEY, TICKET_API_KEY
+PYTHONPATH=. DATABASE_URL=sqlite:///./test.db SECRET_KEY=test TICKET_API_KEY=test python -m unittest discover -s tests -v
+docker build -t flyqm-backend .
 ```
 
-Run with Docker (recommended for full stack)
+Where things are:
 
-```bash
-cd infra
-docker-compose up --build
-```
-
-Useful paths
-- API routes: `backend/app/api/`
-- Schemas: `backend/app/schemas/`
-- Models: `backend/app/models/`
-- Services: `backend/app/services/`
-
-Docs
-- Developer documentation and examples: `docs/API.md`, `docs/EXAMPLES.md`
-
-Testing
-- There are currently no automated tests included. I can add a minimal pytest harness if you want.
+| Path | Contents |
+|---|---|
+| `app/api/` | API routes |
+| `app/schemas/` | Request and response schemas |
+| `app/models/` | SQLAlchemy models (Postgres) |
+| `app/services/` | Pricing, external flight API and booking lifecycle jobs |
+| `app/core/config.py` | Settings, all read from environment variables |
