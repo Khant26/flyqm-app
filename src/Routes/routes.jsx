@@ -13,6 +13,8 @@ import VerifyEmail from "../Pages/VerifyEmail.jsx";
 import ForgotPassword from "../Pages/ForgotPassword.jsx";
 import ResetPassword from "../Pages/ResetPassword.jsx";
 import BookingView from "../Pages/BookingView.jsx";
+import NotFound from "../Pages/NotFound.jsx";
+import { adminRoutes } from "../admin/Route/index.jsx";
 
 const router = createBrowserRouter([
   {
@@ -71,8 +73,14 @@ const router = createBrowserRouter([
         path: "/reset-password",
         Component: ResetPassword,
       },
+      {
+        path: "*",
+        Component: NotFound,
+      },
     ],
   },
+  // Admin dashboard: /admin, /admin/signin, /admin/bookings, ...
+  adminRoutes,
 ]);
 
 export default router;

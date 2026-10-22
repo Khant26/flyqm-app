@@ -1,0 +1,336 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../../contexts/AuthContext";
+import { searchFlights } from "../../config/api";
+import Notification from "../../components/Notification";
+import AdminFlightSearchForm from "../../components/AdminFlightSearchForm";
+import FlightConfigPanel from "../../components/FlightConfigPanel";
+
+export default function FlightManagement() {
+  const navigate = useNavigate();
+  const { hasRole } = useAuth();
+
+  // Search State
+  const [searchParams, setSearchParams] = useState({
+    origin: "",
+    destination: "",
+    departureDate: "",
+  });
+
+  const [searchResults, setSearchResults] = useState([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
+  const [notification, setNotification] = useState({ message: "", type: "success" });
+
+  // Helpers
+  const transformFlightData = (flights) => {
+    return flights.map((f) => {
+      // ONE_WAY flight only
+      return {
+        type: "ONE_WAY",
+        adults: f.adults,
+        bundle_key: f.external_flight_id || f.bundle_key,
+        flight_snapshot: {
+          external_flight_id: f.external_flight_id || f.bundle_key,
+          airline: f.airline,
+          airline_code: f.airline_code,
+          flight_number: f.flight_number,
+          origin: f.origin,
+          destination: f.destination,
+          route: f.route,
+          departure_time: f.departure_time,
+          arrival_time: f.arrival_time,
+          duration_minutes: f.duration_minutes,
+          baggage_carry_on_kg: f.baggage_carry_on_kg,
+          baggage_checked_kg: f.baggage_checked_kg,
+          baggage_fee: f.baggage_fee,
+          baggage_info_url: f.baggage_info_url,
+          base_price_usd: f.base_price_usd,
+          final_price_usd: f.final_price_usd,
+          final_price_mmk: f.final_price_mmk,
+          price_estimate_min_usd: f.price_estimate_min_usd,
+          price_estimate_max_usd: f.price_estimate_max_usd,
+          price_estimate_min_mmk: f.price_estimate_min_mmk,
+          price_estimate_max_mmk: f.price_estimate_max_mmk,
+          requires_admin_confirmation: f.requires_admin_confirmation,
+        },
+        final_price_usd: f.final_price_usd,
+        final_price_mmk: f.final_price_mmk,
+      };
+    });
+  };
+
+  // Helpers
+  const formatDuration = (minutes) => {
+    if (!minutes) return "N/A";
+
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    return `${hours}h ${mins}m`;
+  };
+
+  // Handlers
+  const handleSearch = async () => {
+    if (
+      !searchParams.origin ||
+      !searchParams.destination ||
+      !searchParams.departureDate
+    ) {
+      setSearchError("Please fill in origin, destination, and departure date");
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchError(null);
+
+    try {
+      const results = await searchFlights(
+        searchParams.origin,
+        searchParams.destination,
+        searchParams.departureDate
+      );
+
+      // Transform the API response
+      const transformedResults = transformFlightData(results);
+
+      setSearchResults(transformedResults);
+      setHasSearched(true);
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleClearAll = () => {
+    setSearchParams({
+      origin: "",
+      destination: "",
+      departureDate: "",
+    });
+
+    setSearchResults([]);
+    setHasSearched(false);
+    setSearchError(null);
+  };
+
+  const handleInputChange = (field, value) => {
+    setSearchParams((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Render
+  return (
+    <div>
+      <Notification
+        type={notification.type}
+        message={notification.message}
+        onClose={() => setNotification({ message: "", type: "success" })}
+      />
+
+      <div className="bg-white border border-blue-200 rounded-2xl shadow-md overflow-hidden">
+        {/* Header */}
+        <div className="p-2 border-b border-blue-200">
+          <div className="flex items-center justify-end">
+            <FlightConfigPanel
+              onNotify={setNotification}
+            />
+          </div>
+        </div>
+
+        {/* Search Form */}
+        <div className="p-5">
+          {/* Search Error */}
+          {searchError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+              {searchError}
+            </div>
+          )}
+
+          {/* Admin Flight Search Form */}
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <AdminFlightSearchForm
+                searchParams={searchParams}
+                onSearch={handleSearch}
+                onInputChange={handleInputChange}
+                isSearching={isSearching}
+              />
+            </div>
+            <button
+              onClick={handleClearAll}
+              className="border border-blue-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-50 transition h-10"
+            >
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        {/* Results Table */}
+        {hasSearched && (
+          <>
+            {/* Results Header */}
+            <div className="px-5 py-3 border-b border-blue-200">
+              <h3 className="font-semibold text-gray-800">Search Results</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {searchResults.length > 0
+                  ? `Showing ${searchResults.length} flight${searchResults.length !== 1 ? "s" : ""}`
+                  : "No flights found matching your search criteria"}
+              </p>
+            </div>
+
+            {/* Empty State / Table */}
+            {searchResults.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                No flights found. Try adjusting your search criteria.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-blue-50 border-y border-blue-200 text-gray-600 text-xs uppercase tracking-wide">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Type</th>
+                      <th className="px-4 py-3 text-left">Flight No.</th>
+                      <th className="px-4 py-3 text-left">Airline</th>
+                      <th className="px-4 py-3 text-left">Route</th>
+                      <th className="px-4 py-3 text-left">Departure</th>
+                      <th className="px-4 py-3 text-left">Arrival</th>
+                      <th className="px-4 py-3 text-left">Duration</th>
+                      <th className="px-4 py-3 text-left">Adults</th>
+                      <th className="px-4 py-3 text-left">Base Price USD</th>
+                      <th className="px-4 py-3 text-left">Final Price USD</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-gray-100">
+                    {searchResults.map((flight) => (
+                      <tr key={flight.bundle_key} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3 text-xs">
+                          <span className="font-medium">{flight.type}</span>
+                        </td>
+
+                        <td className="px-4 py-3 font-medium">
+                          {flight.flight_snapshot.flight_number}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {flight.flight_snapshot.airline}
+
+                          <div className="text-xs text-gray-500">
+                            {flight.flight_snapshot.airline_code}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {flight.flight_snapshot.route}
+                        </td>
+
+                        <td className="px-4 py-3 text-sm">
+                          {flight.flight_snapshot.departure_time}
+                        </td>
+
+                        <td className="px-4 py-3 text-sm">
+                          {flight.flight_snapshot.arrival_time}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {formatDuration(flight.flight_snapshot.duration_minutes)}
+                        </td>
+
+                        <td className="px-4 py-3">{flight.adults}</td>
+
+                        <td className="px-4 py-3 font-medium">
+                          ${flight.flight_snapshot.base_price_usd}
+                        </td>
+
+                        <td className="px-4 py-3 font-medium">
+                          ${flight.final_price_usd}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() =>
+                                navigate(`/admin/flights/${flight.bundle_key}`, {
+                                  state: { flightData: flight },
+                                })
+                              }
+                              className="w-8 h-8 flex items-center justify-center border border-blue-200 rounded-lg text-gray-600 hover:bg-blue-50 transition"
+                              title="View"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                              </svg>
+                            </button>
+
+                          {hasRole("SUPER_ADMIN") && (
+                            <button
+                              onClick={() => {
+                                navigate(
+                                  `/admin/flights/${flight.bundle_key}/flight-edit`,
+                                  {
+                                    state: {
+                                      flightData: flight,
+                                      mode: "create",
+                                    },
+                                  }
+                                );
+                              }}
+                              className="w-8 h-8 flex items-center justify-center border border-blue-200 rounded-lg text-gray-600 hover:bg-blue-50 transition"
+                              title="Edit">
+                                  <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  >
+                                  <path
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M11 5h2M12 20h9"
+                                  />
+                                  <path
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M16.862 5.487l1.65 1.65a2.121 2.121 0 010 3l-9.193 9.193-3.536.707.707-3.536 9.193-9.193a2.121 2.121 0 013 0z"
+                                  />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

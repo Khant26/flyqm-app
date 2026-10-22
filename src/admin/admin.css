@@ -1,0 +1,10 @@
+/* Admin-only helpers, scoped under .flyqm-admin so they never affect the
+   customer site. Tailwind itself is imported once in src/index.css. */
+@reference "../index.css";
+
+.flyqm-admin .input {
+  @apply w-full border border-gray-300 px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-black;
+}
+.flyqm-admin .label {
+  @apply block text-xs font-medium text-gray-600 mb-1;
+}

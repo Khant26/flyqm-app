@@ -27,13 +27,13 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/context/**/*.{js,jsx}'],
+    files: ['src/context/**/*.{js,jsx}', 'src/admin/contexts/**/*.{js,jsx}'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },
   },
   {
-    files: ['tailwind.config.js'],
+    files: ['tailwind.config.js', 'vite.config.js'],
     languageOptions: {
       globals: globals.node,
     },
