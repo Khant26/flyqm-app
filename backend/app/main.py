@@ -1,12 +1,16 @@
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
+
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from app.core.config import settings
 from app.db.session import engine, SessionLocal
 from app.db.base import Base
 from app.db.deps import get_db
@@ -22,8 +26,6 @@ from app.services.booking_auto_complete import auto_complete_bookings
 from app.api.router import api_router
 from app.api.flight_routes import router as flight_router
 
-
-app = FastAPI(title="Air Ticket Booking API")
 
 scheduler = BackgroundScheduler()
 
@@ -51,24 +53,23 @@ def lifecycle_job():
         db.close()
 
 
-# STARTUP
-@app.on_event("startup")
-def on_startup():
-    # Wait for DB
-    max_retries = 10
+# STARTUP / SHUTDOWN
+def init_database():
+    # Wait for DB (e.g. the Postgres container may still be starting)
+    max_retries = settings.DB_CONNECT_RETRIES
     for attempt in range(max_retries):
         try:
             Base.metadata.create_all(bind=engine)
             print("Database connected and tables created")
-            break
+            return
         except OperationalError:
-            print(f"Database not ready... retry {attempt + 1}/10")
+            print(f"Database not ready... retry {attempt + 1}/{max_retries}")
             time.sleep(2)
-    else:
-        raise RuntimeError("Could not connect to database")
+    raise RuntimeError("Could not connect to database")
 
-    # Start Scheduler
-    if not scheduler.running:
+
+def start_scheduler():
+    if settings.ENABLE_SCHEDULER and not scheduler.running:
         scheduler.add_job(
             lifecycle_job,
             "interval",
@@ -80,6 +81,26 @@ def on_startup():
         print("Lifecycle scheduler started (every 5 minutes)")
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_database()
+    start_scheduler()
+    yield
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+
+
+app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials="*" not in settings.cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # ROUTERS
 app.include_router(api_router)
 app.include_router(flight_router, prefix="/api")
@@ -88,7 +109,13 @@ app.include_router(flight_router, prefix="/api")
 # HEALTH
 @app.get("/")
 def root():
-    return {"message": "FastAPI running in Docker"}
+    return {"message": f"{settings.APP_NAME} is running", "docs": "/docs"}
+
+
+@app.get("/health", tags=["health"])
+def health():
+    """Liveness probe for Docker / load balancers (no DB access)."""
+    return {"status": "ok"}
 
 
 @app.get("/db-check")
