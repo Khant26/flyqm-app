@@ -25,3 +25,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files (only .env.example is committed)
+.env.*
+!.env.example
+
+# Tooling
+coverage
+.vercel
